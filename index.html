@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#c0392b"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="MCU Tracker"/>
+  <title>MCU Tracker</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #c0392b;
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --muted: #888;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--red); }
+    .stats { display: flex; gap: 16px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 18px; font-weight: 700; }
+    .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .progress-bar-bg { height: 5px; background: var(--surface2); }
+    .progress-bar-fill { height: 100%; background: var(--red); transition: width 0.5s ease; width: 0%; }
+
+    .controls {
+      padding: 0.75rem 1.25rem;
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      position: sticky; top: 65px; z-index: 9;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 150px; }
+    .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; opacity: 0.4; pointer-events: none; }
+    .search-wrap input {
+      width: 100%; padding: 7px 10px 7px 30px; font-size: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); outline: none;
+    }
+    .search-wrap input:focus { border-color: var(--red); }
+
+    .filter-btns { display: flex; gap: 5px; }
+    .fbtn {
+      font-size: 12px; padding: 5px 12px;
+      border: 1px solid var(--border); border-radius: 20px;
+      background: var(--surface); color: var(--muted);
+      cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    }
+    .fbtn.active { background: var(--red); color: #fff; border-color: var(--red); }
+
+    main { padding: 1rem 1.25rem 5rem; }
+
+    .phase-label {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      letter-spacing: 1.5px; text-transform: uppercase;
+      margin: 1.5rem 0 0.6rem; padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+
+    .card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; overflow: hidden; cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+      position: relative; -webkit-tap-highlight-color: transparent;
+    }
+    .card:active { transform: scale(0.96); }
+    .card.watched { border-color: var(--red); }
+
+    .poster-wrap { position: relative; width: 100%; padding-top: 150%; background: var(--surface2); }
+    .poster-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .poster-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+
+    .watched-overlay { position: absolute; inset: 0; background: rgba(192,57,43,0.15); pointer-events: none; }
+    .watch-badge {
+      position: absolute; top: 5px; right: 5px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--red); display: flex; align-items: center; justify-content: center;
+    }
+    .watch-badge svg { width: 12px; height: 12px; }
+
+    .card-body { padding: 6px 8px 8px; }
+    .card-title { font-size: 11px; font-weight: 500; line-height: 1.3; margin-bottom: 2px; }
+    .card-year { font-size: 10px; color: var(--muted); }
+
+    .progress-txt {
+      text-align: center; font-size: 11px; color: var(--muted);
+      padding: 5px 1.25rem; background: var(--bg);
+    }
+
+    .empty { text-align: center; padding: 3rem; color: var(--muted); }
+
+    #installBanner {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 0.75rem 1.25rem; display: flex; align-items: center;
+      justify-content: space-between; gap: 10px; z-index: 100;
+    }
+    #installBanner p { font-size: 13px; color: var(--text); }
+    #installBanner p span { color: var(--muted); font-size: 12px; display: block; }
+    .install-btn {
+      background: var(--red); color: #fff; border: none;
+      padding: 8px 18px; border-radius: 8px; font-size: 13px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .dismiss-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 20px; cursor: pointer; padding: 0 4px; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>Marvel</span> Tracker</div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="statWatched">0</div><div class="stat-label">Watched</div></div>
+    <div class="stat"><div class="stat-val" id="statTotal">36</div><div class="stat-label">Total</div></div>
+    <div class="stat"><div class="stat-val" id="statPct">0%</div><div class="stat-label">Done</div></div>
+  </div>
+</header>
+
+<div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+<div class="progress-txt" id="progressTxt">Tap a movie to mark it watched!</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="M15 15l3 3"/></svg>
+    <input type="text" id="searchInput" placeholder="Search..."/>
+  </div>
+  <div class="filter-btns">
+    <button class="fbtn active" data-filter="all">All</button>
+    <button class="fbtn" data-filter="watched">Watched</button>
+    <button class="fbtn" data-filter="unwatched">Unwatched</button>
+  </div>
+</div>
+
+<main id="movieList"></main>
+
+<div id="installBanner" style="display:none">
+  <p>Add to Home Screen <span>Works offline like a real app!</span></p>
+  <button class="install-btn" id="installBtn">Install</button>
+  <button class="dismiss-btn" id="dismissBtn">&#x2715;</button>
+</div>
+
+<script>
+const MCU = [
+  {phase:1,title:"Iron Man",year:2008,emoji:"🦾",img:"https://upload.wikimedia.org/wikipedia/en/0/02/Iron_Man_%282008_film%29_poster.jpg"},
+  {phase:1,title:"The Incredible Hulk",year:2008,emoji:"💚",img:"https://upload.wikimedia.org/wikipedia/en/5/5a/Incredible_hulk_hulk.jpg"},
+  {phase:1,title:"Iron Man 2",year:2010,emoji:"🦾",img:"https://upload.wikimedia.org/wikipedia/en/e/ed/Iron_Man_2_poster.jpg"},
+  {phase:1,title:"Thor",year:2011,emoji:"⚡",img:"https://upload.wikimedia.org/wikipedia/en/f/fc/Thor_poster.jpg"},
+  {phase:1,title:"Captain America: The First Avenger",year:2011,emoji:"🛡️",img:"https://upload.wikimedia.org/wikipedia/en/3/37/Captain_America_The_First_Avenger_poster.jpg"},
+  {phase:1,title:"The Avengers",year:2012,emoji:"🅰️",img:"https://upload.wikimedia.org/wikipedia/en/8/8a/Avengers_film_poster.jpg"},
+  {phase:2,title:"Iron Man 3",year:2013,emoji:"🦾",img:"https://upload.wikimedia.org/wikipedia/en/b/bc/Iron_Man_3_poster.jpg"},
+  {phase:2,title:"Thor: The Dark World",year:2013,emoji:"⚡",img:"https://upload.wikimedia.org/wikipedia/en/7/7e/Thor_The_Dark_World_poster.jpg"},
+  {phase:2,title:"Captain America: The Winter Soldier",year:2014,emoji:"🛡️",img:"https://upload.wikimedia.org/wikipedia/en/a/a2/Captain_America_The_Winter_Soldier_poster.jpg"},
+  {phase:2,title:"Guardians of the Galaxy",year:2014,emoji:"🚀",img:"https://upload.wikimedia.org/wikipedia/en/9/9e/Guardians_of_the_Galaxy_theatrical_poster.jpg"},
+  {phase:2,title:"Avengers: Age of Ultron",year:2015,emoji:"🤖",img:"https://upload.wikimedia.org/wikipedia/en/1/1b/Avengers_Age_of_Ultron_poster.jpg"},
+  {phase:2,title:"Ant-Man",year:2015,emoji:"🐜",img:"https://upload.wikimedia.org/wikipedia/en/7/71/Ant-Man_poster.jpg"},
+  {phase:3,title:"Captain America: Civil War",year:2016,emoji:"🛡️",img:"https://upload.wikimedia.org/wikipedia/en/5/53/Captain_America_Civil_War_poster.jpg"},
+  {phase:3,title:"Doctor Strange",year:2016,emoji:"🔮",img:"https://upload.wikimedia.org/wikipedia/en/c/c7/Doctor_Strange_poster.jpg"},
+  {phase:3,title:"Guardians of the Galaxy Vol. 2",year:2017,emoji:"🚀",img:"https://upload.wikimedia.org/wikipedia/en/a/ab/Guardians_of_the_Galaxy_Vol_2_poster.jpg"},
+  {phase:3,title:"Spider-Man: Homecoming",year:2017,emoji:"🕷️",img:"https://upload.wikimedia.org/wikipedia/en/f/f9/Spider-Man_Homecoming_poster.jpg"},
+  {phase:3,title:"Thor: Ragnarok",year:2017,emoji:"⚡",img:"https://upload.wikimedia.org/wikipedia/en/8/80/Thor_Ragnar%C3%B6k_poster.jpg"},
+  {phase:3,title:"Black Panther",year:2018,emoji:"🐾",img:"https://upload.wikimedia.org/wikipedia/en/b/b2/Black_Panther_%28film%29_poster.jpg"},
+  {phase:3,title:"Avengers: Infinity War",year:2018,emoji:"💎",img:"https://upload.wikimedia.org/wikipedia/en/4/4b/Avengers_Infinity_War_poster.jpg"},
+  {phase:3,title:"Ant-Man and the Wasp",year:2018,emoji:"🐜",img:"https://upload.wikimedia.org/wikipedia/en/b/bf/Ant-Man_and_the_Wasp_poster.jpg"},
+  {phase:3,title:"Captain Marvel",year:2019,emoji:"⭐",img:"https://upload.wikimedia.org/wikipedia/en/0/04/Captain_Marvel_film_poster.jpg"},
+  {phase:3,title:"Avengers: Endgame",year:2019,emoji:"🔥",img:"https://upload.wikimedia.org/wikipedia/en/0/0d/Avengers_Endgame_poster.jpg"},
+  {phase:3,title:"Spider-Man: Far From Home",year:2019,emoji:"🕷️",img:"https://upload.wikimedia.org/wikipedia/en/0/00/Spider-Man_Far_From_Home_poster.jpg"},
+  {phase:4,title:"Black Widow",year:2021,emoji:"🕸️",img:"https://upload.wikimedia.org/wikipedia/en/e/e5/Black_Widow_%28film%29_poster.jpg"},
+  {phase:4,title:"Shang-Chi and the Legend of the Ten Rings",year:2021,emoji:"🥊",img:"https://upload.wikimedia.org/wikipedia/en/7/74/Shang-Chi_and_the_Legend_of_the_Ten_Rings_poster.jpg"},
+  {phase:4,title:"Eternals",year:2021,emoji:"✨",img:"https://upload.wikimedia.org/wikipedia/en/b/b8/Eternals_film_poster.jpg"},
+  {phase:4,title:"Spider-Man: No Way Home",year:2021,emoji:"🕷️",img:"https://upload.wikimedia.org/wikipedia/en/6/67/Spider-Man_No_Way_Home_poster.jpg"},
+  {phase:4,title:"Doctor Strange in the Multiverse of Madness",year:2022,emoji:"🔮",img:"https://upload.wikimedia.org/wikipedia/en/8/8e/Doctor_Strange_Multiverse_of_Madness_poster.jpg"},
+  {phase:4,title:"Thor: Love and Thunder",year:2022,emoji:"⚡",img:"https://upload.wikimedia.org/wikipedia/en/d/d5/Thor_Love_and_Thunder_poster.jpg"},
+  {phase:4,title:"Black Panther: Wakanda Forever",year:2022,emoji:"🐾",img:"https://upload.wikimedia.org/wikipedia/en/b/bc/Black_Panther_Wakanda_Forever_poster.jpg"},
+  {phase:5,title:"Ant-Man and the Wasp: Quantumania",year:2023,emoji:"🐜",img:"https://upload.wikimedia.org/wikipedia/en/c/c7/Ant-Man_and_the_Wasp_-_Quantumania_poster.jpg"},
+  {phase:5,title:"Guardians of the Galaxy Vol. 3",year:2023,emoji:"🚀",img:"https://upload.wikimedia.org/wikipedia/en/f/fe/Guardians_of_the_Galaxy_Vol_3_poster.jpg"},
+  {phase:5,title:"The Marvels",year:2023,emoji:"⭐",img:"https://upload.wikimedia.org/wikipedia/en/e/e3/The_Marvels_poster.jpg"},
+  {phase:5,title:"Deadpool & Wolverine",year:2024,emoji:"⚔️",img:"https://upload.wikimedia.org/wikipedia/en/a/ab/Deadpool_%26_Wolverine_poster.jpg"},
+  {phase:5,title:"Captain America: Brave New World",year:2025,emoji:"🛡️",img:"https://upload.wikimedia.org/wikipedia/en/1/1e/Captain_America_Brave_New_World_poster.jpg"},
+  {phase:5,title:"Thunderbolts*",year:2025,emoji:"⚡",img:"https://upload.wikimedia.org/wikipedia/en/7/7c/Thunderbolts%2A_film_poster.jpg"},
+];
+
+let watched = new Set(JSON.parse(localStorage.getItem('mcuWatched')||'[]'));
+let filter = 'all', search = '';
+
+function save() { localStorage.setItem('mcuWatched', JSON.stringify([...watched])); }
+function toggle(title) { watched.has(title) ? watched.delete(title) : watched.add(title); save(); render(); }
+
+function render() {
+  const q = search.toLowerCase();
+  const filtered = MCU.filter(m => {
+    if (q && !m.title.toLowerCase().includes(q)) return false;
+    if (filter==='watched' && !watched.has(m.title)) return false;
+    if (filter==='unwatched' && watched.has(m.title)) return false;
+    return true;
+  });
+  const w = watched.size, total = MCU.length;
+  const pct = Math.round(w/total*100);
+  document.getElementById('statWatched').textContent = w;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statPct').textContent = pct+'%';
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('progressTxt').textContent =
+    w===0 ? 'Tap a movie to mark it watched!' :
+    w===total ? '🎉 MCU complete!' :
+    `${total-w} movie${total-w!==1?'s':''} left`;
+
+  const phases = [...new Set(filtered.map(m=>m.phase))].sort((a,b)=>a-b);
+  const container = document.getElementById('movieList');
+  if (!filtered.length) { container.innerHTML='<div class="empty">No movies found.</div>'; return; }
+  container.innerHTML = phases.map(ph => {
+    const movies = filtered.filter(m=>m.phase===ph);
+    return `<div class="phase-label">Phase ${ph}</div><div class="grid">${movies.map(m=>{
+      const isW = watched.has(m.title);
+      const safe = m.title.replace(/'/g,"\\'");
+      return `<div class="card ${isW?'watched':''}" onclick="toggle('${safe}')">
+        <div class="poster-wrap">
+          <img src="${m.img}" alt="${m.title}" loading="lazy" onerror="this.style.display='none'"/>
+          <div class="poster-fallback">${m.emoji}</div>
+          ${isW?'<div class="watched-overlay"></div>':''}
+        </div>
+        ${isW?`<div class="watch-badge"><svg viewBox="0 0 14 14" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 5.5,11 12,3"/></svg></div>`:''}
+        <div class="card-body">
+          <div class="card-title">${m.title}</div>
+          <div class="card-year">${m.year}</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+}
+
+document.getElementById('searchInput').addEventListener('input', e=>{ search=e.target.value; render(); });
+document.querySelectorAll('.fbtn[data-filter]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    filter=btn.dataset.filter;
+    document.querySelectorAll('.fbtn[data-filter]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); render();
+  });
+});
+
+// PWA install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('installBanner').style.display='flex';
+});
+document.getElementById('installBtn').addEventListener('click', async()=>{
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  document.getElementById('installBanner').style.display='none';
+});
+document.getElementById('dismissBtn').addEventListener('click',()=>{
+  document.getElementById('installBanner').style.display='none';
+});
+
+// Service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+render();
+</script>
+</body>
+</html>
